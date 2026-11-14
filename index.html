@@ -336,7 +336,7 @@ let itens = [];
 $('btnAdm').onclick = ()=>{ $('admLogin').hidden = false; $('admLista').hidden = true; $('admEntrar').hidden = false; $('admCsv').hidden = true; $('admErro').textContent=''; $('senha').value=''; abre('ovAdm'); $('senha').focus(); };
 $('admFecha').onclick = ()=>{ fecha('ovAdm'); senhaAdm=''; };
 $('admEntrar').onclick = async ()=>{
-  const s = $('senha').value;
+  const s = $('senha').value.trim();
   try{
     const r = await listarAdm(s);
     if(!r.ok){ $('admErro').textContent = 'Senha incorreta.'; return; }
