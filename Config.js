@@ -8,4 +8,4 @@ const CONFIG = {
   APPS_SCRIPT_URL: "https://script.google.com/macros/s/AKfycbwL8iFIjTWS3oeVoY2HceBENbj25NbFZ8hJxWOd1kTliAHYPg3oCrsWgLN5NDN47ZUm/exec",       // URL do Google Apps Script. Vazio = modo demonstração
   SENHA_DEMO: "natal"        // senha da área da organização no modo demonstração
 };
-/* ======================================= */
+/* =======================================  */
