@@ -123,6 +123,13 @@ th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--ceu-claro)}
 th{color:var(--azul)}
 .tab{overflow-x:auto;margin-top:12px}
 .rel{background:var(--telha);color:#fff;border:0;border-radius:8px;padding:3px 10px}
+.rel.verde{background:#1E9E54}.rel.cinza{background:#8AA3B1}
+.tag{border-radius:99px;padding:2px 10px;font-size:.8rem;font-weight:800;white-space:nowrap}
+.tag.ok{background:#DDF5E6;color:#136B39}.tag.pend{background:#FBE9D4;color:#9A4A12}
+.cel{white-space:nowrap}.cel .rel{margin:2px 4px 2px 0}
+.filtros{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap}
+.filtros button{background:var(--ceu-claro);color:var(--azul);border:0;border-radius:99px;padding:5px 14px;font-weight:600}
+.filtros button.on{background:var(--azul);color:#fff}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -216,14 +223,15 @@ th{color:var(--azul)}
   <div class="acoes"><button class="btn sec" id="meuFecha" type="button">Fechar</button><button class="btn" id="meuOk" type="button">Consultar</button></div>
 </div></div>
 
-<div class="ov" id="ovAdm"><div class="modal" style="max-width:640px" role="dialog" aria-modal="true" aria-labelledby="ta">
+<div class="ov" id="ovAdm"><div class="modal" style="max-width:780px" role="dialog" aria-modal="true" aria-labelledby="ta">
   <h3 id="ta">Área da organização</h3>
   <div id="admLogin">
     <label for="senha">Senha</label><input id="senha" type="password" autocomplete="current-password">
     <p class="erro" id="admErro" role="alert"></p>
   </div>
   <div id="admLista" hidden><p id="admResumo"></p>
-    <div style="display:flex;gap:8px;align-items:end;margin:12px 0 0;flex-wrap:wrap"><div style="flex:1;min-width:150px"><label for="totalInp" style="margin-top:0">Total de números da rifa</label><input id="totalInp" type="number" min="10" max="1000"></div><button class="btn" id="salvaTotal" type="button">Salvar total</button></div><p class="erro" id="totalMsg" role="status"></p><div class="tab"><table><thead><tr><th>Nº</th><th>Nome</th><th>Telefone</th><th></th></tr></thead><tbody id="admBody"></tbody></table></div></div>
+    <div style="display:flex;gap:8px;align-items:end;margin:12px 0 0;flex-wrap:wrap"><div style="flex:1;min-width:150px"><label for="totalInp" style="margin-top:0">Total de números da rifa</label><input id="totalInp" type="number" min="10" max="1000"></div><button class="btn" id="salvaTotal" type="button">Salvar total</button></div><p class="erro" id="totalMsg" role="status"></p><div class="filtros" id="filtros"><button type="button" data-f="todos" class="on">Todos</button><button type="button" data-f="pendentes">Pendentes</button><button type="button" data-f="pagos">Pagos</button></div>
+    <div class="tab"><table><thead><tr><th>Nº</th><th>Nome</th><th>Telefone</th><th>Situação</th><th></th></tr></thead><tbody id="admBody"></tbody></table></div></div>
   <div class="acoes"><button class="btn sec" id="admFecha">Fechar</button><button class="btn" id="admEntrar">Entrar</button><button class="btn" id="admCsv" hidden>Baixar planilha</button></div>
 </div></div>
 
@@ -281,6 +289,10 @@ async function listarAdm(senha){
   if(senha!==CONFIG.SENHA_DEMO) return {ok:false,error:'auth'};
   const o = loc.ler();
   return {ok:true,items:Object.keys(o).map(n=>({n:+n,...o[n]}))};
+}
+async function marcarPago(n,pago){
+  if(remoto) return post({action:'pay',pass:senhaAdm,n:n,pago:pago});
+  const o = loc.ler(); if(o[n]){ o[n].pago = pago; loc.gravar(o); } return {ok:true};
 }
 async function liberar(n){
   if(remoto) return post({action:'release',pass:senhaAdm,n});
@@ -389,18 +401,39 @@ $('admEntrar').onclick = async ()=>{
     senhaAdm = s; itens = r.items; $('admLogin').hidden = true; $('admEntrar').hidden = true; $('admLista').hidden = false; $('admCsv').hidden = false; tabela(); $('totalInp').value = total; $('totalMsg').textContent = '';
   }catch(e){ $('admErro').textContent = 'Sem conexão.'; }
 };
+let filtro = 'todos';
 function tabela(){
   itens.sort((a,b)=>a.n-b.n);
-  $('admResumo').textContent = itens.length+' números reservados · arrecadação prevista: '+brl(itens.length*CONFIG.PRECO);
+  const pagos = itens.filter(i=>i.pago).length, pend = itens.length-pagos;
+  $('admResumo').textContent = itens.length+' reservados · '+pagos+' pagos ('+brl(pagos*CONFIG.PRECO)+') · '+pend+' pendentes ('+brl(pend*CONFIG.PRECO)+')';
   const tb = $('admBody'); tb.textContent = '';
-  itens.forEach(it=>{
+  itens.filter(i=>filtro==='todos' || (filtro==='pagos')===!!i.pago).forEach(it=>{
     const tr = tb.insertRow();
     tr.insertCell().textContent = it.n; tr.insertCell().textContent = it.name; tr.insertCell().textContent = it.phone;
+    const st = document.createElement('span'); st.className = 'tag '+(it.pago?'ok':'pend'); st.textContent = it.pago?'Pago':'Pendente';
+    tr.insertCell().appendChild(st);
+    const c = tr.insertCell(); c.className = 'cel';
+    const bp = document.createElement('button'); bp.className = 'rel '+(it.pago?'cinza':'verde'); bp.textContent = it.pago?'Desfazer':'Confirmar pagamento';
+    bp.onclick = async ()=>{
+      bp.disabled = true;
+      try{
+        const r = await marcarPago(it.n,!it.pago);
+        if(r.ok){ it.pago = !it.pago; tabela(); }
+        else { bp.disabled = false; alert('Não foi possível salvar. Confira se publicou a nova versão do script no Google.'); }
+      }catch(e){ bp.disabled = false; alert('Sem conexão.'); }
+    };
     const b = document.createElement('button'); b.className = 'rel'; b.textContent = 'Liberar';
-    b.onclick = async ()=>{ if(!confirm('Liberar o número '+it.n+'?')) return; const r = await liberar(it.n); if(r.ok){ itens = itens.filter(x=>x.n!==it.n); tomados.delete(it.n); tabela(); desenhar(); } };
-    tr.insertCell().appendChild(b);
+    b.onclick = async ()=>{
+      if(!confirm((it.pago?'Este número já está pago. ':'')+'Liberar o número '+it.n+'?')) return;
+      const r = await liberar(it.n); if(r.ok){ itens = itens.filter(x=>x.n!==it.n); tomados.delete(it.n); tabela(); desenhar(); }
+    };
+    c.append(bp,b);
   });
 }
+$('filtros').onclick = e=>{
+  const f = e.target.dataset && e.target.dataset.f; if(!f) return;
+  filtro = f; document.querySelectorAll('#filtros button').forEach(x=>x.classList.toggle('on',x.dataset.f===f)); tabela();
+};
 $('salvaTotal').onclick = async ()=>{
   const t = parseInt($('totalInp').value,10), msg = $('totalMsg'), min = Math.max(1,...itens.map(i=>i.n));
   msg.style.color = '';
@@ -416,7 +449,7 @@ $('salvaTotal').onclick = async ()=>{
 };
 $('admCsv').onclick = ()=>{
   const q = v => '"'+String(v).replace(/"/g,'""')+'"';
-  const csv = '\ufeffNúmero;Nome;Telefone\n'+itens.map(i=>[i.n,q(i.name),q(i.phone)].join(';')).join('\n');
+  const csv = '\ufeffNúmero;Nome;Telefone;Situação\n'+itens.map(i=>[i.n,q(i.name),q(i.phone),i.pago?'Pago':'Pendente'].join(';')).join('\n');
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
   a.download = 'rifa-participantes.csv'; a.click();
 };
