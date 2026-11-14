@@ -315,7 +315,7 @@ $('confirmar').onclick = async ()=>{
       tomados = new Set(r.taken); r.clash.forEach(n=>sel.delete(n)); desenhar();
       $('erro').textContent = 'O número '+r.clash.join(', ')+' acabou de ser reservado por outra pessoa. Escolha outro.';
       if(!sel.size) fecha('ovForm');
-    } else $('erro').textContent = 'Não foi possível reservar. Tente novamente.';
+    } else $('erro').textContent = 'Resposta inesperada do script ('+(r.error||'sem detalhe')+'). Recarregue a página e veja se seus números aparecem como reservados.';
   }catch(e){ $('erro').textContent = 'Sem conexão. Tente novamente.'; }
   btn.disabled = false; btn.textContent = 'Confirmar reserva';
 };
