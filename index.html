@@ -21,7 +21,7 @@ body{font-family:var(--sans);color:var(--texto);background:var(--ceu-fundo);line
 button{font:inherit;cursor:pointer}
 :focus-visible{outline:3px solid var(--ouro);outline-offset:2px}
 
-/* Topo  */
+/* Topo */
 .hero{position:relative;text-align:center;color:var(--branco);padding:56px 20px 90px;overflow:hidden;
   background:radial-gradient(circle at 50% 0%,#fff 0,#BDEBF8 18%,var(--ceu) 55%,#2C9CD0 100%)}
 .hero::before{content:"";position:absolute;inset:-50%;opacity:.35;
@@ -79,6 +79,9 @@ h2{font-family:var(--serif);font-size:2rem;color:var(--azul);text-align:center;m
 .n:hover:not(:disabled){transform:scale(1.1);background:var(--ceu-claro)}
 .n.sel{background:linear-gradient(135deg,var(--ouro-claro),var(--ouro));color:#fff;border-color:#9A7210;transform:scale(1.08)}
 .n:disabled{cursor:not-allowed;background:var(--telha);border-color:var(--telha);color:#fff;opacity:.55;text-decoration:line-through}
+.n.meu:disabled{background:var(--azul);border-color:var(--azul);color:#fff;opacity:1;text-decoration:none}
+.dot-m{background:var(--azul)}
+.lnk{background:none;border:0;color:var(--azul);text-decoration:underline;font-weight:600;font-size:.95rem}
 .dot-d{background:#fff;border:2px solid var(--ouro)} .dot-s{background:var(--ouro)} .dot-v{background:var(--telha);opacity:.55}
 
 /* Barra fixa */
@@ -160,8 +163,9 @@ th{color:var(--azul)}
   <section>
     <h2>Escolha seus números</h2><hr class="fio">
     <div class="legenda">
-      <span><i class="dot-d"></i>Disponível</span><span><i class="dot-s"></i>Escolhido por você</span><span><i class="dot-v"></i>Já reservado</span>
+      <span><i class="dot-d"></i>Disponível</span><span><i class="dot-s"></i>Selecionado agora</span><span><i class="dot-m"></i>Reservado por você</span><span><i class="dot-v"></i>Já reservado</span>
     </div>
+    <p style="text-align:center;margin:-4px 0 14px"><button class="lnk" id="btnMeu" type="button">Já reservou? Ver meus números</button></p>
     <div class="grade" id="grade" role="group" aria-label="Números da rifa"></div>
   </section>
 </main>
@@ -183,6 +187,9 @@ th{color:var(--azul)}
   <input id="nome" autocomplete="name" maxlength="80">
   <label for="tel">Telefone com DDD (WhatsApp)</label>
   <input id="tel" inputmode="tel" autocomplete="tel" placeholder="(61) 90000-0000" maxlength="15">
+  <label for="pin">Crie um PIN de 4 números</label>
+  <input id="pin" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="Ex.: 1234">
+  <p class="aviso">Anote o PIN. Com ele e o telefone você consulta suas reservas depois.</p>
   <p class="erro" id="erro" role="alert"></p>
   <div class="acoes"><button class="btn sec" id="cancelar">Voltar</button><button class="btn" id="confirmar">Confirmar reserva</button></div>
 </div></div>
@@ -193,6 +200,18 @@ th{color:var(--azul)}
   <div class="pix" id="pixBox" hidden></div>
   <p class="aviso" id="okAviso"></p>
   <div class="acoes"><a class="btn" id="btnZap" style="text-align:center;text-decoration:none" hidden target="_blank" rel="noopener">Enviar comprovante</a><button class="btn sec" id="fechaOk">Fechar</button></div>
+</div></div>
+
+<div class="ov" id="ovMeu"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="tm">
+  <h3 id="tm">Meus números</h3>
+  <label for="mTel">Telefone com DDD</label>
+  <input id="mTel" inputmode="tel" maxlength="15" placeholder="(61) 90000-0000">
+  <label for="mPin">PIN de 4 números</label>
+  <input id="mPin" type="password" inputmode="numeric" maxlength="4" autocomplete="off">
+  <p class="aviso">É o PIN que você criou ao reservar. Só quem tem o telefone e o PIN vê as reservas.</p>
+  <p id="meuRes" style="margin-top:12px;font-weight:600" role="status"></p>
+  <p class="erro" id="meuErro" role="alert"></p>
+  <div class="acoes"><button class="btn sec" id="meuFecha" type="button">Fechar</button><button class="btn" id="meuOk" type="button">Consultar</button></div>
 </div></div>
 
 <div class="ov" id="ovAdm"><div class="modal" style="max-width:640px" role="dialog" aria-modal="true" aria-labelledby="ta">
@@ -213,7 +232,10 @@ const $ = id => document.getElementById(id);
 const brl = v => v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const remoto = !!CONFIG.APPS_SCRIPT_URL;
 let total = CONFIG.TOTAL, tomados = new Set(), sel = new Set(), senhaAdm = "";
-const KEYT = 'rifa_nsf_total';
+const KEYT = 'rifa_nsf_total', KEYM = 'rifa_nsf_meus';
+function lerMeus(){ try{ return JSON.parse(localStorage.getItem(KEYM)) || []; }catch(e){ return []; } }
+function gravarMeus(){ try{ localStorage.setItem(KEYM, JSON.stringify([...meus])); }catch(e){} }
+const meus = new Set(lerMeus());
 
 function semFoto(){
   const d = document.createElement('div');
@@ -238,12 +260,19 @@ async function carregar(){
     catch(e){ $('grade').insertAdjacentHTML('beforebegin','<p class="erro">Não foi possível carregar os números. Tente atualizar a página.</p>'); }
   } else { tomados = new Set(Object.keys(loc.ler()).map(Number)); try{ total = parseInt(localStorage.getItem(KEYT))||total; }catch(e){} }
 }
-async function reservar(nums, nome, tel){
-  if(remoto) return post({action:'reserve',numbers:nums,name:nome,phone:tel});
-  const o = loc.ler(), conflito = nums.filter(n=>o[n]);
+async function reservar(nums, nome, tel, pin){
+  if(remoto) return post({action:'reserve',numbers:nums,name:nome,phone:tel,pin:pin});
+  const o = loc.ler(), dig = tel.replace(/\D/g,''), antigo = Object.values(o).find(x=>x.phone.replace(/\D/g,'')===dig && x.pin);
+  if(antigo && antigo.pin!==pin) return {ok:false,error:'pin'};
+  const conflito = nums.filter(n=>o[n]);
   if(conflito.length) return {ok:false,error:'taken',clash:conflito,taken:Object.keys(o).map(Number)};
-  nums.forEach(n=>o[n]={name:nome,phone:tel,date:new Date().toISOString()});
+  nums.forEach(n=>o[n]={name:nome,phone:tel,pin:pin,date:new Date().toISOString()});
   loc.gravar(o); return {ok:true};
+}
+async function consultar(tel,pin){
+  if(remoto) return post({action:'mine',phone:tel,pin:pin});
+  const o = loc.ler(), dig = tel.replace(/\D/g,''), ms = Object.keys(o).filter(n=>o[n].phone.replace(/\D/g,'')===dig && o[n].pin===pin);
+  return ms.length ? {ok:true,name:o[ms[0]].name,numbers:ms.map(Number)} : {ok:false,error:'auth'};
 }
 async function listarAdm(senha){
   if(remoto) return post({action:'admin',pass:senha});
@@ -262,7 +291,7 @@ function desenhar(){
   for(let i=1;i<=total;i++){
     const b = document.createElement('button');
     b.className = 'n' + (sel.has(i)?' sel':''); b.textContent = i; b.type = 'button';
-    if(tomados.has(i)){ b.disabled = true; b.setAttribute('aria-label','Número '+i+', já reservado'); }
+    if(tomados.has(i)){ b.disabled = true; if(meus.has(i)){ b.classList.add('meu'); b.setAttribute('aria-label','Número '+i+', reservado por você'); } else b.setAttribute('aria-label','Número '+i+', já reservado'); }
     else { b.setAttribute('aria-label','Número '+i); b.setAttribute('aria-pressed',sel.has(i)); b.onclick = ()=>alternar(i); }
     g.appendChild(b);
   }
@@ -292,16 +321,18 @@ $('tel').oninput = e=>{
   e.target.value = s;
 };
 $('confirmar').onclick = async ()=>{
-  const nome = $('nome').value.trim(), tel = $('tel').value.trim();
+  const nome = $('nome').value.trim(), tel = $('tel').value.trim(), pin = $('pin').value.trim();
   if(nome.split(/\s+/).length<2){ $('erro').textContent = 'Informe nome e sobrenome.'; return; }
   if(tel.replace(/\D/g,'').length<10){ $('erro').textContent = 'Informe o telefone com DDD.'; return; }
+  if(!/^\d{4}$/.test(pin)){ $('erro').textContent = 'Crie um PIN com 4 números.'; return; }
   const btn = $('confirmar'); btn.disabled = true; btn.textContent = 'Reservando…';
   const nums = [...sel].sort((a,b)=>a-b);
   try{
-    const r = await reservar(nums,nome,tel);
+    const r = await reservar(nums,nome,tel,pin);
     if(r.ok){
-      tomados = new Set([...tomados,...nums]); sel.clear(); fecha('ovForm'); sucesso(nums,nome); desenhar();
-      $('nome').value = ''; $('tel').value = '';
+      tomados = new Set([...tomados,...nums]); nums.forEach(n=>meus.add(n)); gravarMeus(); sel.clear(); fecha('ovForm'); sucesso(nums,nome); desenhar();
+      $('nome').value = ''; $('tel').value = ''; $('pin').value = '';
+    } else if(r.error==='pin'){ $('erro').textContent = 'Este telefone já tem reservas. Digite o mesmo PIN criado antes.';
     } else if(r.error==='taken'){
       tomados = new Set(r.taken); r.clash.forEach(n=>sel.delete(n)); desenhar();
       $('erro').textContent = 'O número '+r.clash.join(', ')+' acabou de ser reservado por outra pessoa. Escolha outro.';
@@ -316,11 +347,30 @@ function sucesso(nums,nome){
   const px = $('pixBox'); px.hidden = !CONFIG.PIX;
   if(CONFIG.PIX) px.textContent = 'Pix: '+CONFIG.PIX;
   $('okAviso').textContent = CONFIG.PIX ? 'Faça o pagamento para confirmar seus números.' : 'Combine o pagamento com a organização da paróquia.';
+  $('okAviso').textContent += ' Guarde o seu PIN: com ele e o telefone você consulta suas reservas.';
   const z = $('btnZap'); z.hidden = !CONFIG.WHATSAPP;
   if(CONFIG.WHATSAPP) z.href = 'https://wa.me/'+CONFIG.WHATSAPP+'?text='+encodeURIComponent('Olá! Sou '+nome+' e reservei os números '+nums.join(', ')+' da rifa. Total: '+total+'.');
   abre('ovOk');
 }
 $('fechaOk').onclick = ()=>fecha('ovOk');
+
+/* ---- Meus números ---- */
+$('btnMeu').onclick = ()=>{ $('meuErro').textContent = ''; $('meuRes').textContent = ''; abre('ovMeu'); $('mTel').focus(); };
+$('meuFecha').onclick = ()=>fecha('ovMeu');
+$('mTel').oninput = $('tel').oninput;
+$('pin').oninput = $('mPin').oninput = e=>{ e.target.value = e.target.value.replace(/\D/g,'').slice(0,4); };
+$('meuOk').onclick = async ()=>{
+  const tel = $('mTel').value.trim(), pin = $('mPin').value.trim(), er = $('meuErro'), bt = $('meuOk');
+  er.textContent = ''; $('meuRes').textContent = '';
+  if(tel.replace(/\D/g,'').length<10 || !/^\d{4}$/.test(pin)){ er.textContent = 'Informe o telefone com DDD e o PIN de 4 números.'; return; }
+  bt.disabled = true;
+  try{
+    const r = await consultar(tel,pin);
+    if(r.ok){ r.numbers.forEach(n=>meus.add(n)); gravarMeus(); desenhar(); $('meuRes').textContent = r.name.split(' ')[0]+', seus números: '+r.numbers.sort((a,b)=>a-b).join(', ')+'.'; }
+    else er.textContent = r.error==='locked' ? 'Muitas tentativas. Tente de novo em 15 minutos.' : 'Telefone ou PIN incorretos.';
+  }catch(e){ er.textContent = 'Sem conexão.'; }
+  bt.disabled = false;
+};
 
 /* ---- Administração ---- */
 let itens = [];
