@@ -327,7 +327,7 @@ $('btnReservar').onclick = ()=>{
   $('chips').innerHTML = arr.map(n=>'<b>'+n+'</b>').join('');
   $('erro').textContent = ''; abre('ovForm'); $('nome').focus();
 };
-$('cancelar').onclick = ()=>fecha('ovForm');
+$('cancelar').onclick = ()=>location.reload();
 $('tel').oninput = e=>{
   let d = e.target.value.replace(/\D/g,'');
   if(d.length>11 && d.startsWith('55')) d = d.slice(2);
@@ -369,11 +369,11 @@ function sucesso(nums,nome){
   $('btnZap').href = 'https://wa.me/'+(CONFIG.WHATSAPP||'')+'?text='+encodeURIComponent(msg);
   abre('ovOk');
 }
-$('fechaOk').onclick = ()=>fecha('ovOk');
+$('fechaOk').onclick = ()=>location.reload();
 
 /* ---- Meus números ---- */
 $('btnMeu').onclick = ()=>{ $('meuErro').textContent = ''; $('meuRes').textContent = ''; abre('ovMeu'); $('mTel').focus(); };
-$('meuFecha').onclick = ()=>fecha('ovMeu');
+$('meuFecha').onclick = ()=>location.reload();
 $('mTel').oninput = $('tel').oninput;
 $('pin').oninput = $('mPin').oninput = e=>{ e.target.value = e.target.value.replace(/\D/g,'').slice(0,4); };
 $('meuOk').onclick = async ()=>{
@@ -392,7 +392,7 @@ $('meuOk').onclick = async ()=>{
 /* ---- Administração ---- */
 let itens = [];
 $('btnAdm').onclick = ()=>{ $('admLogin').hidden = false; $('admLista').hidden = true; $('admEntrar').hidden = false; $('admCsv').hidden = true; $('admErro').textContent=''; $('senha').value=''; abre('ovAdm'); $('senha').focus(); };
-$('admFecha').onclick = ()=>{ fecha('ovAdm'); senhaAdm=''; };
+$('admFecha').onclick = ()=>{ senhaAdm=''; location.reload(); };
 $('admEntrar').onclick = async ()=>{
   const s = $('senha').value.trim();
   try{
@@ -454,7 +454,7 @@ $('admCsv').onclick = ()=>{
   a.download = 'rifa-participantes.csv'; a.click();
 };
 
-document.addEventListener('keydown',e=>{ if(e.key==='Escape') document.querySelectorAll('.ov.on').forEach(o=>o.classList.remove('on')); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape' && document.querySelector('.ov.on')) location.reload(); });
 $('preco').textContent = brl(CONFIG.PRECO);
 (async()=>{ desenhar(); await carregar(); desenhar(); })();
 </script>
