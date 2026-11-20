@@ -119,6 +119,11 @@ input:focus{border-color:var(--ouro);outline:none}
 .musica{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));right:12px;z-index:30;width:44px;height:44px;border-radius:50%;border:2px solid var(--ouro);background:#fff;font-size:1.2rem;line-height:1;box-shadow:0 4px 14px rgba(15,76,117,.25)}
 .musica.on{background:linear-gradient(135deg,var(--ouro-claro),var(--ouro))}
 .pix .copiar{margin-top:10px;width:100%;padding:10px 18px}
+.pixtopo{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:#fff;border:2px solid var(--ouro-claro);border-radius:18px;padding:14px 18px;box-shadow:0 6px 20px rgba(15,76,117,.08)}
+.pixtopo[hidden]{display:none}
+.pixtopo small{display:block;color:var(--cinza);font-weight:600}
+.pixtopo strong{color:var(--azul);font-size:1.1rem;word-break:break-all}
+.pixtopo .btn{padding:10px 22px}
 footer{text-align:center;margin-top:44px;padding:30px 16px;color:var(--azul)}
 footer .adm{background:none;border:0;color:var(--cinza);text-decoration:underline;margin-top:12px;font-size:.85rem}
 table{width:100%;border-collapse:collapse;font-size:.92rem}
@@ -166,6 +171,11 @@ th{color:var(--azul)}
   <section class="causa">
     <h2>Por que participar?</h2>
     <p>Toda a renda desta rifa será usada na compra de alimentos para o <strong>Natal em Comunidade</strong>. Cada número escolhido vira prato à mesa de quem mais precisa.</p>
+  </section>
+
+  <section class="pixtopo" id="pixTopo" hidden aria-label="Chave Pix">
+    <div><small>Pagamento via Pix</small><strong id="pixTopoTxt"></strong></div>
+    <button class="btn sec" id="btnCopiarTopo" type="button">Copiar chave Pix</button>
   </section>
 
   <section class="prog" aria-label="Andamento da rifa">
@@ -239,7 +249,7 @@ th{color:var(--azul)}
   <div class="acoes"><button class="btn sec" id="admFecha">Fechar</button><button class="btn" id="admEntrar">Entrar</button><button class="btn" id="admCsv" hidden>Baixar planilha</button></div>
 </div></div>
 
-<script src="config.js"></script>
+<script>const CONFIG={TOTAL:200,PRECO:10,PIX:"00.000.000/0000-00",WHATSAPP:"",APPS_SCRIPT_URL:"",SENHA_DEMO:"natal"};</script>
 <script>
 
 const $ = id => document.getElementById(id);
@@ -373,15 +383,20 @@ function sucesso(nums,nome){
   $('btnZap').href = 'https://wa.me/'+(CONFIG.WHATSAPP||'')+'?text='+encodeURIComponent(msg);
   abre('ovOk');
 }
-$('btnCopiar').onclick = async ()=>{
-  const b = $('btnCopiar'), txt = CONFIG.PIX; let ok = false;
-  try{ await navigator.clipboard.writeText(txt); ok = true; }
-  catch(e){
-    try{ const t = document.createElement('textarea'); t.value = txt; t.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(t); t.select(); ok = document.execCommand('copy'); t.remove(); }catch(e2){}
-  }
-  b.textContent = ok ? 'Chave copiada! ✓' : 'Não deu para copiar. Toque e segure na chave acima.';
-  setTimeout(()=>{ b.textContent = 'Copiar chave Pix'; },2500);
-};
+function copiar(b){
+  const txt = CONFIG.PIX, orig = b.dataset.t || (b.dataset.t = b.textContent);
+  (async()=>{
+    let ok = false;
+    try{ await navigator.clipboard.writeText(txt); ok = true; }
+    catch(e){
+      try{ const t = document.createElement('textarea'); t.value = txt; t.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(t); t.select(); ok = document.execCommand('copy'); t.remove(); }catch(e2){}
+    }
+    b.textContent = ok ? 'Chave copiada! ✓' : 'Não deu para copiar. Toque e segure na chave.';
+    setTimeout(()=>{ b.textContent = orig; },2500);
+  })();
+}
+$('btnCopiar').onclick = ()=>copiar($('btnCopiar'));
+$('btnCopiarTopo').onclick = ()=>copiar($('btnCopiarTopo'));
 $('fechaOk').onclick = ()=>location.reload();
 
 /* ---- Meus números ---- */
@@ -564,6 +579,7 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape' && document.querySe
   mostra();
 })();
 
+if(CONFIG.PIX){ $('pixTopo').hidden = false; $('pixTopoTxt').textContent = CONFIG.PIX; }
 $('preco').textContent = brl(CONFIG.PRECO);
 (async()=>{ desenhar(); await carregar(); desenhar(); })();
 </script>
