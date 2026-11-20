@@ -497,7 +497,7 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape' && document.querySe
   ];
   const ev = []; let dur = 0;
   musicas.forEach(m=>{ m.n.forEach(([p,b])=>{ ev.push({t:dur,p:p}); dur += b*m.s; }); dur += 2.5; });
-  let ctx, mestre, audio, timer, posTimer, t0 = 0, i = 0, ciclo = 0, ligada = false, quer = true, pausadaAba = false;
+  let ctx, mestre, audio, timer, posTimer, t0 = 0, i = 0, ciclo = 0, ligada = false, quer = true, pausadaAba = false, iniciando = false;
   try{ quer = localStorage.getItem(KOFF)!=='1'; }catch(e){}
   const posSalva = ()=>{ try{ return parseFloat(sessionStorage.getItem(KP))||0; }catch(e){ return 0; } };
   const salvaPos = p=>{ try{ sessionStorage.setItem(KP,String(p)); }catch(e){} };
@@ -531,7 +531,8 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape' && document.querySe
     }
   }
   async function liga(){
-    if(ligada) return;
+    if(ligada || iniciando) return;
+    iniciando = true;
     try{
       if(ARQ){
         if(!audio){
@@ -542,7 +543,8 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape' && document.querySe
         await audio.play();
       } else {
         if(!ctx) montar();
-        await ctx.resume();
+        await Promise.race([ctx.resume(), new Promise(r=>setTimeout(r,800))]);
+        if(ctx.state!=='running') throw new Error('áudio bloqueado');
         mestre.gain.cancelScheduledValues(ctx.currentTime); mestre.gain.setValueAtTime(VOL,ctx.currentTime);
         const off = posSalva() % dur;
         t0 = ctx.currentTime - off; ciclo = 0; i = ev.findIndex(e=>e.t>=off);
@@ -551,7 +553,7 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape' && document.querySe
       }
       ligada = true; clearInterval(posTimer); posTimer = setInterval(()=>salvaPos(posAtual()),1000);
     }catch(e){ ligada = false; }
-    mostra();
+    iniciando = false; mostra();
   }
   function desliga(){
     if(ligada) salvaPos(posAtual());
@@ -565,12 +567,13 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape' && document.querySe
     else { quer = true; try{ localStorage.removeItem(KOFF); }catch(e){} liga(); }
   };
   // Navegadores só liberam som depois de um toque/clique: começa no primeiro toque na página
-  const gesto = e=>{
+  const EVT = ['pointerup','click','touchend','keydown'];
+  const gesto = async e=>{
     if(e.target.closest && e.target.closest('#btnMusica')) return;
-    ['pointerdown','keydown'].forEach(n=>document.removeEventListener(n,gesto,true));
-    if(quer) liga();
+    if(quer) await liga();
+    if(ligada || !quer) EVT.forEach(n=>document.removeEventListener(n,gesto,true));
   };
-  ['pointerdown','keydown'].forEach(n=>document.addEventListener(n,gesto,true));
+  EVT.forEach(n=>document.addEventListener(n,gesto,true));
   document.addEventListener('visibilitychange',()=>{
     if(document.hidden){ if(ligada){ pausadaAba = true; desliga(); } }
     else if(pausadaAba){ pausadaAba = false; if(quer) liga(); }
