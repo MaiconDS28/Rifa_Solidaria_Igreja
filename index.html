@@ -124,6 +124,13 @@ input:focus{border-color:var(--ouro);outline:none}
 .pixtopo small{display:block;color:var(--cinza);font-weight:600}
 .pixtopo strong{color:var(--azul);font-size:1.1rem;word-break:break-all}
 .pixtopo .btn{padding:10px 22px}
+.contatotopo{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:#fff;border:2px solid var(--ceu-claro);border-radius:18px;padding:14px 18px;box-shadow:0 6px 20px rgba(15,76,117,.08)}
+.contatotopo[hidden]{display:none}
+.contatotopo small{display:block;color:var(--cinza);font-weight:600}
+.contatotopo strong{color:var(--azul);font-size:1.1rem;word-break:break-all}
+.contatotopo .btn{padding:10px 22px}
+.contatotopo .btn.zap{flex:0 0 auto}
+
 footer{text-align:center;margin-top:44px;padding:30px 16px;color:var(--azul)}
 footer .adm{background:none;border:0;color:var(--cinza);text-decoration:underline;margin-top:12px;font-size:.85rem}
 table{width:100%;border-collapse:collapse;font-size:.92rem}
@@ -176,6 +183,11 @@ th{color:var(--azul)}
   <section class="pixtopo" id="pixTopo" hidden aria-label="Chave Pix">
     <div><small>Pagamento via Pix</small><strong id="pixTopoTxt"></strong></div>
     <button class="btn sec" id="btnCopiarTopo" type="button">Copiar chave Pix</button>
+  </section>
+
+<section class="contatotopo" id="contatoTopo" hidden aria-label="Contato para enviar comprovante do pagamento">
+    <div><small>Enviar comprovante</small><strong id="contatoTopoTxt"></strong></div>
+    <a class="btn zap" id="btnZapTopo" target="_blank" rel="noopener">Enviar comprovante</a>
   </section>
 
   <section class="prog" aria-label="Andamento da rifa">
@@ -322,6 +334,9 @@ function desenhar(){
     if(tomados.has(i)){ b.disabled = true; if(meus.has(i)){ b.classList.add('meu'); b.setAttribute('aria-label','Número '+i+', reservado por você'); } else b.setAttribute('aria-label','Número '+i+', já reservado'); }
     else { b.setAttribute('aria-label','Número '+i); b.setAttribute('aria-pressed',sel.has(i)); b.onclick = ()=>alternar(i); }
     g.appendChild(b);
+    $('dkNums').textContent = arr.join(', ');
+    $('dkTotal').textContent = '· '+brl(arr.length*CONFIG.PRECO);
+    atualizarZapTopo();
   }
   const v = tomados.size;
   $('bar').style.width = (v/total*100)+'%';
@@ -380,10 +395,10 @@ function sucesso(nums,nome){
   $('okAviso').textContent = CONFIG.PIX ? 'Faça o pagamento para confirmar seus números.' : 'Combine o pagamento com a organização da rifa.';
   $('okAviso').textContent += ' Guarde o seu PIN: com ele e o telefone você consulta suas reservas.';
   const msg = 'Olá! Reservei o(s) número(s) '+nums.join(', ')+' na Rifa. Vou fazer a transferência para a chave PIX '+(CONFIG.PIX||'informada na reserva')+' e logo envio o comprovante aqui neste mesmo contato.';
-  $('btnZap').href = 'https://wa.me/'+(CONFIG.WHATSAPP||'')+'?text='+encodeURIComponent(msg);
+  $('btnZap').href = 'https://wa.me/'+(CONFIG.WHATSAPP||'').replace(/\D/g,'')+'?text='+encodeURIComponent(msg);
   abre('ovOk');
 }
-function copiar(b){
+function copiarpix(b){
   const txt = CONFIG.PIX, orig = b.dataset.t || (b.dataset.t = b.textContent);
   (async()=>{
     let ok = false;
@@ -395,8 +410,8 @@ function copiar(b){
     setTimeout(()=>{ b.textContent = orig; },2500);
   })();
 }
-$('btnCopiar').onclick = ()=>copiar($('btnCopiar'));
-$('btnCopiarTopo').onclick = ()=>copiar($('btnCopiarTopo'));
+$('btnCopiar').onclick = ()=>copiarpix($('btnCopiar'));
+$('btnCopiarTopo').onclick = ()=>copiarpix($('btnCopiarTopo'));
 $('fechaOk').onclick = ()=>location.reload();
 
 /* ---- Meus números ---- */
@@ -579,9 +594,25 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape' && document.querySe
   mostra();
 })();
 
+
+function atualizarZapTopo(){
+  if(!CONFIG.WHATSAPP) return;
+  const nums = [...meus].sort((a,b)=>a-b);
+  const msgTopo = nums.length
+    ? 'Olá! Gostaria de falar sobre a Rifa Solidária. Segue o comprovante de pagamento. Meus números reservados são: ' + nums.join(', ') + '.'
+    : 'Olá! Gostaria de falar sobre a Rifa Solidária. Segue o comprovante de pagamento. Meus números reservados são: ';
+  $('btnZapTopo').href = 'https://wa.me/' + CONFIG.WHATSAPP.replace(/\D/g,'') + '?text=' + encodeURIComponent(msgTopo);
+}
+
+
 if(CONFIG.PIX){ $('pixTopo').hidden = false; $('pixTopoTxt').textContent = CONFIG.PIX; }
-$('preco').textContent = brl(CONFIG.PRECO);
-(async()=>{ desenhar(); await carregar(); desenhar(); })();
+if(CONFIG.WHATSAPP){
+  $('contatoTopo').hidden = false;
+  $('contatoTopoTxt').textContent = CONFIG.WHATSAPP;
+  atualizarZapTopo();
+}
+
+
 </script>
 </body>
 </html>
