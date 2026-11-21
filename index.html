@@ -124,6 +124,7 @@ input:focus{border-color:var(--ouro);outline:none}
 .pixtopo small{display:block;color:var(--cinza);font-weight:600}
 .pixtopo strong{color:var(--azul);font-size:1.1rem;word-break:break-all}
 .pixtopo .btn{padding:10px 22px}
+.pixtopo .btn.zap{flex:0 0 auto;padding:10px 22px}
 footer{text-align:center;margin-top:44px;padding:30px 16px;color:var(--azul)}
 footer .adm{background:none;border:0;color:var(--cinza);text-decoration:underline;margin-top:12px;font-size:.85rem}
 table{width:100%;border-collapse:collapse;font-size:.92rem}
@@ -176,6 +177,11 @@ th{color:var(--azul)}
   <section class="pixtopo" id="pixTopo" hidden aria-label="Chave Pix">
     <div><small>Pagamento via Pix</small><strong id="pixTopoTxt"></strong></div>
     <button class="btn sec" id="btnCopiarTopo" type="button">Copiar chave Pix</button>
+  </section>
+
+  <section class="pixtopo" id="contatoTopo" hidden aria-label="Enviar comprovante">
+    <div><small>Enviar comprovante</small><strong id="contatoTopoTxt"></strong></div>
+    <a class="btn zap" id="btnZapTopo" target="_blank" rel="noopener">Enviar comprovante</a>
   </section>
 
   <section class="prog" aria-label="Andamento da rifa">
@@ -371,7 +377,7 @@ $('confirmar').onclick = async ()=>{
   try{
     const r = await reservar(nums,nome,tel,pin);
     if(r.ok){
-      tomados = new Set([...tomados,...nums]); nums.forEach(n=>meus.add(n)); gravarMeus(); sel.clear(); fecha('ovForm'); sucesso(nums,nome); desenhar();
+      tomados = new Set([...tomados,...nums]); nums.forEach(n=>meus.add(n)); gravarMeus(); atualizarZapTopo(); sel.clear(); fecha('ovForm'); sucesso(nums,nome); desenhar();
       $('nome').value = ''; $('tel').value = ''; $('pin').value = '';
     } else if(r.error==='pin'){ $('erro').textContent = 'Este telefone já tem reservas. Digite o mesmo PIN criado antes.';
     } else if(r.error==='taken'){
@@ -421,7 +427,7 @@ $('meuOk').onclick = async ()=>{
   bt.disabled = true;
   try{
     const r = await consultar(tel,pin);
-    if(r.ok){ r.numbers.forEach(n=>meus.add(n)); gravarMeus(); desenhar(); $('meuRes').textContent = r.name.split(' ')[0]+', seus números: '+r.numbers.sort((a,b)=>a-b).join(', ')+'.'; }
+    if(r.ok){ r.numbers.forEach(n=>meus.add(n)); gravarMeus(); atualizarZapTopo(); desenhar(); $('meuRes').textContent = r.name.split(' ')[0]+', seus números: '+r.numbers.sort((a,b)=>a-b).join(', ')+'.'; }
     else er.textContent = r.error==='locked' ? 'Muitas tentativas. Tente de novo em 15 minutos.' : 'Telefone ou PIN incorretos.';
   }catch(e){ er.textContent = 'Sem conexão.'; }
   bt.disabled = false;
@@ -493,7 +499,25 @@ $('admCsv').onclick = ()=>{
 };
 
 document.addEventListener('keydown',e=>{ if(e.key==='Escape' && document.querySelector('.ov.on')) location.reload(); });
+function atualizarZapTopo(){
+  if(!CONFIG.WHATSAPP) return;
+  const nums = [...meus].sort((a,b)=>a-b);
+  const msgTopo = nums.length
+    ? 'Olá! Gostaria de falar sobre a Rifa Solidária. Segue o comprovante de pagamento. Meus números reservados são: ' + nums.join(', ') + '.'
+    : 'Olá! Gostaria de falar sobre a Rifa Solidária. Segue o comprovante de pagamento. Meus números reservados são: ';
+  $('btnZapTopo').href = 'https://wa.me/' + String(CONFIG.WHATSAPP).replace(/\D/g,'') + '?text=' + encodeURIComponent(msgTopo);
+}
+function fmtTel(t){
+  const d = String(t).replace(/\D/g,'');
+  return (d.length===13 && d.startsWith('55')) ? '+55 ('+d.slice(2,4)+') '+d.slice(4,9)+'-'+d.slice(9) : t;
+}
+
 if(CONFIG.PIX){ $('pixTopo').hidden = false; $('pixTopoTxt').textContent = CONFIG.PIX; }
+if(CONFIG.WHATSAPP){
+  $('contatoTopo').hidden = false;
+  $('contatoTopoTxt').textContent = fmtTel(CONFIG.WHATSAPP);
+  atualizarZapTopo();
+}
 $('preco').textContent = brl(CONFIG.PRECO);
 (async()=>{ desenhar(); await carregar(); desenhar(); })();
 
@@ -599,6 +623,6 @@ try{
 }catch(e){ console.error(e); }
 </script>
 </body>
-
 </html>
+
 
